@@ -70,7 +70,8 @@ socket.on("message", async (msg) => { // Added 'async'
     // 2. Broadcast as you did before
     socket.broadcast.emit("message", {
         user,
-        text: msg
+        text: msg,
+      time: newMessage.time
     });
   });
 
@@ -82,13 +83,17 @@ socket.on("message", async (msg) => { // Added 'async'
     }
   });
 });
-
-/* 👇 THIS PART WAS MISSING */
+socket.on("chat-history", (messages) => {
+    messages.forEach(msg => {
+        appendMessage(msg.user, msg.text, msg.time);
+    });
+});
 const PORT = process.env.PORT || 1000;
 
 http.listen(PORT, () => {
   console.log("Server running on port", PORT);
 });
+
 
 
 
