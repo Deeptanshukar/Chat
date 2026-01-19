@@ -1,3 +1,20 @@
+const mongoose = require('mongoose');
+
+// Use an Environment Variable for security
+const mongoURI = process.env.MONGODB_URI;
+
+mongoose.connect(mongoURI)
+  .then(() => console.log("Connected to MongoDB"))
+  .catch(err => console.log("MongoDB Error:", err));
+
+// Create a "Schema" to save messages
+const messageSchema = new mongoose.Schema({
+  user: String,
+  text: String,
+  time: { type: Date, default: Date.now }
+});
+const Message = mongoose.model('Message', messageSchema);
+
 const express = require("express");
 const app = express();
 const http = require("http").createServer(app);
@@ -52,4 +69,5 @@ const PORT = process.env.PORT || 1000;
 http.listen(PORT, () => {
   console.log("Server running on port", PORT);
 });
+
 
