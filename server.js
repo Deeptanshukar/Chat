@@ -20,7 +20,7 @@ const app = express();
 const http = require("http").createServer(app);
 const io = require("socket.io")(http);
 
-const allowedUsers = ["d", "s"];
+const allowedUsers = ["alice", "bob"];
 let connectedUsers = {};
 
 app.use(express.static("public"));
@@ -75,6 +75,7 @@ const PORT = process.env.PORT || 1000;
 http.listen(PORT, () => {
   console.log("Server running on port", PORT);
 });
+
 
 
 
