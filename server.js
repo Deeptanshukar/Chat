@@ -42,9 +42,23 @@ io.on("connection", socket => {
     }
 
     connectedUsers[socket.id] = username;
+    // NEW: Fetch messages from MongoDB
+    try {
+        // Find messages, sort by newest first, limit to 50
+        const history = await Message.find().sort({ time: -1 }).limit(50);
+        // Send them to the user (reversed so they are in chronological order)
+        socket.emit("chat-history", history.reverse());
+    } catch (err) {
+        console.error("Error loading history:", err);
+    }
     socket.emit("login-success", username);
     socket.broadcast.emit("system", `${username} joined the chat`);
   });
+  const messageSchema = new mongoose.Schema({
+  user: String,
+  text: String,
+  time: { type: Date, default: Date.now } // This saves the date and time
+});
 
 socket.on("message", async (msg) => { // Added 'async'
     const user = connectedUsers[socket.id];
@@ -75,6 +89,7 @@ const PORT = process.env.PORT || 1000;
 http.listen(PORT, () => {
   console.log("Server running on port", PORT);
 });
+
 
 
 
