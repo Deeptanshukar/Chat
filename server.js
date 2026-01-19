@@ -1,13 +1,17 @@
 const mongoose = require('mongoose');
+const express = require("express");
+const app = express();
+const http = require("http").createServer(app);
+const io = require("socket.io")(http);
 
-// Use an Environment Variable for security
+// 1. Database Connection
 const mongoURI = process.env.MONGODB_URI;
 
 mongoose.connect(mongoURI)
   .then(() => console.log("Connected to MongoDB"))
   .catch(err => console.log("MongoDB Error:", err));
 
-// Create a "Schema" to save messages
+// 2. Message Schema
 const messageSchema = new mongoose.Schema({
   user: String,
   text: String,
@@ -15,20 +19,17 @@ const messageSchema = new mongoose.Schema({
 });
 const Message = mongoose.model('Message', messageSchema);
 
-const express = require("express");
-const app = express();
-const http = require("http").createServer(app);
-const io = require("socket.io")(http);
-
+// 3. App Settings
 const allowedUsers = ["alice", "bob"];
 let connectedUsers = {};
 
 app.use(express.static("public"));
 
+// 4. Socket Logic
 io.on("connection", socket => {
 
-  socket.on("login", username => {
-
+  // LOGIN HANDLER - Added 'async' to allow 'await Message.find()'
+  socket.on("login", async (username) => {
     if (!allowedUsers.includes(username)) {
       socket.emit("login-failed", "Access denied");
       socket.disconnect();
@@ -42,39 +43,40 @@ io.on("connection", socket => {
     }
 
     connectedUsers[socket.id] = username;
-    // NEW: Fetch messages from MongoDB
+
+    // Fetch history from MongoDB
     try {
-        // Find messages, sort by newest first, limit to 50
         const history = await Message.find().sort({ time: -1 }).limit(50);
-        // Send them to the user (reversed so they are in chronological order)
         socket.emit("chat-history", history.reverse());
     } catch (err) {
         console.error("Error loading history:", err);
     }
+
     socket.emit("login-success", username);
     socket.broadcast.emit("system", `${username} joined the chat`);
   });
-  const messageSchema = new mongoose.Schema({
-  user: String,
-  text: String,
-  time: { type: Date, default: Date.now } // This saves the date and time
-});
 
-socket.on("message", async (msg) => { // Added 'async'
+  // MESSAGE HANDLER
+  socket.on("message", async (msg) => {
     const user = connectedUsers[socket.id];
-    
-    // 1. Create and Save the message to MongoDB
-    const newMessage = new Message({ user, text: msg });
-    await newMessage.save();
+    if (!user) return;
 
-    // 2. Broadcast as you did before
-    socket.broadcast.emit("message", {
-        user,
-        text: msg,
-      time: newMessage.time
-    });
+    try {
+        const newMessage = new Message({ user, text: msg });
+        await newMessage.save();
+
+        // Broadcast to all other users with the timestamp
+        socket.broadcast.emit("message", {
+            user,
+            text: msg,
+            time: newMessage.time
+        });
+    } catch (err) {
+        console.error("Save error:", err);
+    }
   });
 
+  // DISCONNECT HANDLER
   socket.on("disconnect", () => {
     const user = connectedUsers[socket.id];
     delete connectedUsers[socket.id];
@@ -83,19 +85,9 @@ socket.on("message", async (msg) => { // Added 'async'
     }
   });
 });
-socket.on("chat-history", (messages) => {
-    messages.forEach(msg => {
-        appendMessage(msg.user, msg.text, msg.time);
-    });
-});
-const PORT = process.env.PORT || 1000;
 
+// 5. Start Server
+const PORT = process.env.PORT || 10000; // Render uses 10000 by default
 http.listen(PORT, () => {
   console.log("Server running on port", PORT);
 });
-
-
-
-
-
-
