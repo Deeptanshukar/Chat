@@ -20,7 +20,7 @@ const app = express();
 const http = require("http").createServer(app);
 const io = require("socket.io")(http);
 
-const allowedUsers = ["alice", "bob"];
+const allowedUsers = ["d", "s"];
 let connectedUsers = {};
 
 app.use(express.static("public"));
@@ -46,11 +46,17 @@ io.on("connection", socket => {
     socket.broadcast.emit("system", `${username} joined the chat`);
   });
 
-  socket.on("message", msg => {
+socket.on("message", async (msg) => { // Added 'async'
     const user = connectedUsers[socket.id];
+    
+    // 1. Create and Save the message to MongoDB
+    const newMessage = new Message({ user, text: msg });
+    await newMessage.save();
+
+    // 2. Broadcast as you did before
     socket.broadcast.emit("message", {
-      user,
-      text: msg
+        user,
+        text: msg
     });
   });
 
@@ -69,5 +75,6 @@ const PORT = process.env.PORT || 1000;
 http.listen(PORT, () => {
   console.log("Server running on port", PORT);
 });
+
 
 
